@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  llm-tuning:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: llm-tuning-dev
+    volumes:
+      - .:/workspace
+      - poetry-cache:/root/.cache/pypoetry
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    command: tail -f /dev/null
+
+volumes:
+  poetry-cache:
+
+
