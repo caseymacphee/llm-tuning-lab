@@ -1,0 +1,55 @@
+# Production-optimized Dockerfile for GPU training
+# Uses official PyTorch image with CUDA support
+
+FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
+
+# Metadata
+LABEL maintainer="Casey MacPhee <caseymacphee@gmail.com>"
+LABEL description="LLM fine-tuning training environment"
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    DEBIAN_FRONTEND=noninteractive
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /workspace
+
+# Copy dependency files
+COPY pyproject.toml ./
+
+# Install Python dependencies
+# Install separately to leverage Docker layer caching
+RUN pip install --no-cache-dir \
+    transformers>=4.57.0 \
+    datasets>=4.1.1 \
+    peft>=0.17.1 \
+    trl>=0.7.11 \
+    pydantic-settings>=2.11.0 \
+    click>=8.3.0
+
+# Copy application code
+COPY lab/ ./lab/
+
+# Install package in editable mode
+RUN pip install --no-cache-dir -e .
+
+# Create directories for data and outputs
+RUN mkdir -p /workspace/data /workspace/output /workspace/checkpoints
+
+# Health check (optional, useful for container orchestration)
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import torch; assert torch.cuda.is_available()" || exit 1
+
+# Default command
+CMD ["python", "-m", "lab.train_lora", "--log-level", "INFO"]
+
+

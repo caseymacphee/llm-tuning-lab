@@ -8,13 +8,13 @@ services:
     container_name: llm-tuning-dev
     volumes:
       - .:/workspace
-      - poetry-cache:/root/.cache/pypoetry
+      - pipenv-cache:/root/.local/share/virtualenvs
     working_dir: /workspace
     stdin_open: true
     tty: true
     command: tail -f /dev/null
+    environment:
+      - PIPENV_VENV_IN_PROJECT=1
 
 volumes:
-  poetry-cache:
-
-
+  pipenv-cache:

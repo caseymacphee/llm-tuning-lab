@@ -1,0 +1,88 @@
+name: Build and Push Training Image to ECR
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'lab/**'
+      - 'Dockerfile.gpu'
+      - 'pyproject.toml'
+      - '.github/workflows/build-push-ecr.yml'
+  workflow_dispatch:  # Allow manual triggers
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # Required for OIDC
+      contents: read
+    
+    env:
+      AWS_REGION: us-west-2
+      ECR_REPOSITORY: llm-tuning-lab-training
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_GHA_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Extract metadata
+        id: meta
+        run: |
+          IMAGE_TAG=${GITHUB_SHA::7}
+          echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+          echo "timestamp=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+      
+      - name: Build and push Docker image
+        env:
+          ACCOUNT_ID: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ steps.meta.outputs.image_tag }}
+          TIMESTAMP: ${{ steps.meta.outputs.timestamp }}
+        run: |
+          # Extract just the account ID from the full registry URL
+          REGISTRY=$(echo $ACCOUNT_ID | cut -d'.' -f1)
+          ECR_URL=${REGISTRY}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPOSITORY}
+          
+          echo "Building Docker image..."
+          docker build -f Dockerfile.gpu \
+            --tag ${ECR_URL}:${IMAGE_TAG} \
+            --tag ${ECR_URL}:latest \
+            --label "org.opencontainers.image.created=${TIMESTAMP}" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            --label "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+            .
+          
+          echo "Pushing Docker image..."
+          docker push ${ECR_URL}:${IMAGE_TAG}
+          docker push ${ECR_URL}:latest
+          
+          echo "✅ Successfully pushed:"
+          echo "  - ${ECR_URL}:${IMAGE_TAG}"
+          echo "  - ${ECR_URL}:latest"
+          
+          # Output image URI for potential downstream jobs
+          echo "image_uri=${ECR_URL}:${IMAGE_TAG}" >> $GITHUB_OUTPUT
+      
+      - name: Image digest
+        run: |
+          echo "Image built and pushed successfully!"
+          echo "Tag: ${{ steps.meta.outputs.image_tag }}"
+          echo "Commit: ${GITHUB_SHA}"
+      
+      - name: Cleanup
+        if: always()
+        run: docker system prune -f
+
+

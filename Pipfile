@@ -1,0 +1,24 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+torch = ">=2.8.0"
+transformers = ">=4.57.0"
+datasets = ">=4.1.1"
+peft = ">=0.17.1"
+trl = ">=0.7.11"
+pydantic-settings = ">=2.11.0"
+click = ">=8.3.0"
+
+[dev-packages]
+pytest = ">=8.4.2"
+pytest-cov = ">=7.0.0"
+ipython = ">=9.6.0"
+black = ">=25.9.0"
+ruff = ">=0.13.3"
+
+[requires]
+python_version = "3.12"
+

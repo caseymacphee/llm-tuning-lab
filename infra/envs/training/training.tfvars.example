@@ -1,0 +1,43 @@
+# Example configuration for training environment
+# Copy this file to training.tfvars and customize
+
+# Basic Configuration
+region      = "us-west-2"
+environment = "training"
+name        = "llm-tuning-lab"
+
+# Instance Configuration
+create_instance = false  # Set to true to spin up training instance
+instance_type   = "g5.xlarge"  # A10G 24GB GPU, ~$0.30/hr spot, ~$1.00/hr on-demand
+use_spot        = true         # Use spot for 70% cost savings
+volume_size     = 200          # GB for models + checkpoints
+
+# Network Configuration
+create_vpc        = true  # Creates dedicated training VPC (recommended)
+availability_zone = "us-west-2a"
+
+# Or use existing VPC (set create_vpc = false)
+# vpc_id    = "vpc-xxxxx"
+# subnet_id = "subnet-xxxxx"
+
+# SSH Access (optional - SSM recommended)
+# key_name = "your-key-pair"
+
+# Training Configuration
+docker_image_tag = "latest"
+training_command = "python -m lab.train_lora --log-level INFO"
+auto_shutdown    = true  # Shutdown after training completes
+
+# Safety Configuration
+max_runtime_hours    = 12   # Auto-terminate after 12 hours
+cost_alert_threshold = 50   # Alert if costs exceed $50
+alert_email          = ""   # your-email@example.com
+
+# Recommended instance types:
+# - g5.xlarge:    A10G 24GB,  4 vCPU,  16GB RAM, ~$0.30/hr spot (best for 7-8B models)
+# - g5.2xlarge:   A10G 24GB,  8 vCPU,  32GB RAM, ~$0.60/hr spot (better CPU/memory)
+# - g5.4xlarge:   A10G 24GB, 16 vCPU,  64GB RAM, ~$1.20/hr spot
+# - p3.2xlarge:   V100 16GB,  8 vCPU,  61GB RAM, ~$0.90/hr spot (mature ecosystem)
+# - p3.8xlarge:   4x V100,   32 vCPU, 244GB RAM, ~$3.60/hr spot (multi-GPU)
+
+
