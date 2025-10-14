@@ -222,21 +222,7 @@ data "aws_ami" "deep_learning" {
   }
 }
 
-# User data script
-data "template_file" "user_data" {
-  template = file("${path.module}/user-data.sh")
-
-  vars = {
-    ecr_repository_url = var.ecr_repository_url
-    docker_image_tag   = var.docker_image_tag
-    training_bucket    = var.training_bucket
-    outputs_bucket     = var.outputs_bucket
-    training_command   = var.training_command
-    auto_shutdown      = var.auto_shutdown ? "true" : "false"
-    region             = data.aws_region.current.name
-  }
-}
-
+# Get current region
 data "aws_region" "current" {}
 
 # Training EC2 instance
@@ -259,7 +245,15 @@ resource "aws_instance" "training" {
     encrypted             = true
   }
 
-  user_data_base64 = base64encode(data.template_file.user_data.rendered)
+  user_data_base64 = base64encode(templatefile("${path.module}/user-data.sh", {
+    ecr_repository_url = var.ecr_repository_url
+    docker_image_tag   = var.docker_image_tag
+    training_bucket    = var.training_bucket
+    outputs_bucket     = var.outputs_bucket
+    training_command   = var.training_command
+    auto_shutdown      = var.auto_shutdown ? "true" : "false"
+    region             = data.aws_region.current.id
+  }))
 
   # Spot instance request
   instance_market_options {

@@ -36,11 +36,19 @@ module "storage" {
   region      = var.region
 }
 
+# Look up existing GitHub OIDC provider (may be from another project)
+data "aws_iam_openid_connect_provider" "github" {
+  url = "https://token.actions.githubusercontent.com"
+}
+
 # Container registry for training images
 module "registry" {
   source      = "../../modules/training-registry"
   name        = var.name
   environment = var.environment
+  
+  # Reuse existing GitHub OIDC provider (shared across projects in AWS account)
+  github_oidc_provider_arn = data.aws_iam_openid_connect_provider.github.arn
 }
 
 # GPU compute instance for training
