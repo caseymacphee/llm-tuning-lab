@@ -118,7 +118,7 @@ def create_training_arguments(config):
         learning_rate=config.training.learning_rate,
         bf16=config.training.bf16,
         logging_steps=config.training.logging_steps,
-        evaluation_strategy=config.training.evaluation_strategy,
+        eval_strategy=config.training.evaluation_strategy,
         eval_steps=config.training.eval_steps,
         save_steps=config.training.save_steps,
         lr_scheduler_type=config.training.lr_scheduler_type,
