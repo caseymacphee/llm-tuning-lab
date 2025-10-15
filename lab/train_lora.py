@@ -4,9 +4,9 @@ import logging
 import click
 import torch
 from datasets import Dataset
-from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments
+from transformers import AutoTokenizer, AutoModelForCausalLM
 from peft import LoraConfig as PeftLoraConfig, get_peft_model, TaskType
-from trl import SFTTrainer
+from trl import SFTTrainer, SFTConfig
 
 from lab.config import load_config
 from lab.data_processor import load_training_data
@@ -101,15 +101,15 @@ def setup_model_and_tokenizer(config):
 
 def create_training_arguments(config):
     """
-    Create TrainingArguments from config.
+    Create SFTConfig from config.
     
     Args:
         config: Configuration object
     
     Returns:
-        TrainingArguments object
+        SFTConfig object
     """
-    return TrainingArguments(
+    return SFTConfig(
         output_dir=config.training.output_dir,
         num_train_epochs=config.training.num_train_epochs,
         per_device_train_batch_size=config.training.per_device_train_batch_size,
@@ -123,7 +123,8 @@ def create_training_arguments(config):
         save_steps=config.training.save_steps,
         lr_scheduler_type=config.training.lr_scheduler_type,
         warmup_ratio=config.training.warmup_ratio,
-        report_to=config.training.report_to
+        report_to=config.training.report_to,
+        max_length=config.data.max_length
     )
 
 
@@ -177,17 +178,16 @@ def train(log_level):
     
     # Create trainer
     logger.info(
-        "Initializing SFTTrainer with max_seq_length=%d, gradient_accumulation_steps=%d",
+        "Initializing SFTTrainer with max_length=%d (from SFTConfig), gradient_accumulation_steps=%d",
         config.data.max_length,
         config.training.gradient_accumulation_steps
     )
     trainer = SFTTrainer(
         model=model,
-        tokenizer=tokenizer,
         train_dataset=train_dataset,
         eval_dataset=eval_dataset,
         args=training_args,
-        max_seq_length=config.data.max_length
+        processing_class=tokenizer
     )
     
     # Train
