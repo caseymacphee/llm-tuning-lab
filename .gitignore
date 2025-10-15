@@ -82,9 +82,6 @@ ipython_config.py
 # pyenv
 .python-version
 
-# pipenv
-Pipfile.lock
-
 # PEP 582
 __pypackages__/
 
