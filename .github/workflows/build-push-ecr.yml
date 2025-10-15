@@ -6,7 +6,8 @@ on:
     paths:
       - 'lab/**'
       - 'Dockerfile.gpu'
-      - 'pyproject.toml'
+      - 'Pipfile'
+      - 'Pipfile.lock'
       - '.github/workflows/build-push-ecr.yml'
   workflow_dispatch:  # Allow manual triggers
 
