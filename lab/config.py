@@ -24,9 +24,9 @@ class TrainingConfig(BaseSettings):
     
     output_dir: str = Field(default="out/lora-ckpt", description="Output directory for checkpoints")
     num_train_epochs: int = Field(default=2, description="Number of training epochs")
-    per_device_train_batch_size: int = Field(default=2, description="Training batch size per device")
-    per_device_eval_batch_size: int = Field(default=2, description="Evaluation batch size per device")
-    gradient_accumulation_steps: int = Field(default=8, description="Gradient accumulation steps")
+    per_device_train_batch_size: int = Field(default=1, description="Training batch size per device")
+    per_device_eval_batch_size: int = Field(default=1, description="Evaluation batch size per device")
+    gradient_accumulation_steps: int = Field(default=16, description="Gradient accumulation steps")
     learning_rate: float = Field(default=2e-4, description="Learning rate")
     bf16: bool = Field(default=True, description="Use bfloat16 precision")
     logging_steps: int = Field(default=20, description="Log every N steps")

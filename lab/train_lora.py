@@ -123,7 +123,8 @@ def create_training_arguments(config):
         lr_scheduler_type=config.training.lr_scheduler_type,
         warmup_ratio=config.training.warmup_ratio,
         report_to=config.training.report_to,
-        max_length=config.data.max_length
+        max_length=config.data.max_length,
+        gradient_checkpointing=True  # Save GPU memory by recomputing activations
     )
 
 
