@@ -20,6 +20,21 @@ export TRAINING_COMMAND="${training_command}"
 export AUTO_SHUTDOWN="${auto_shutdown}"
 export DEBIAN_FRONTEND=noninteractive
 
+# Wait for unattended-upgrades to finish (race condition on AMI first boot)
+echo "Waiting for any system package manager locks to be released..."
+max_wait=300  # 5 minutes
+waited=0
+while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 ; do
+    echo "Waiting for dpkg lock to be released... ($waited/$max_wait seconds)"
+    sleep 10
+    waited=$((waited + 10))
+    if [ $waited -ge $max_wait ]; then
+        echo "WARNING: Timed out waiting for package lock. Proceeding anyway..."
+        break
+    fi
+done
+echo "Package manager is ready"
+
 # Update system
 echo "Updating system packages..."
 apt-get update -y
@@ -77,20 +92,28 @@ else
 fi
 
 # Create training script wrapper
-cat > /workspace/run_training.sh << 'EOF'
+cat > /workspace/run_training.sh << EOF
 #!/bin/bash
 set -e
 
 # Start timestamp
-START_TIME=$(date +%s)
-RUN_ID=$(date +%Y%m%d-%H%M%S)
+START_TIME=\$(date +%s)
+RUN_ID=\$(date +%Y%m%d-%H%M%S)
 
 echo "========================================"
-echo "Training Run Started: $(date)"
-echo "Run ID: $RUN_ID"
+echo "Training Run Started: \$(date)"
+echo "Run ID: \$RUN_ID"
 echo "========================================"
 
-# Run training
+# Fetch HuggingFace token from Secrets Manager
+echo "Fetching HuggingFace token from Secrets Manager..."
+HF_TOKEN=\$(aws secretsmanager get-secret-value \
+    --secret-id llm-tuning-lab/huggingface-token \
+    --region $AWS_DEFAULT_REGION \
+    --query SecretString \
+    --output text)
+
+# Run training with HF_TOKEN
 docker run --gpus all --rm \
     -v /workspace/data:/workspace/data:ro \
     -v /workspace/output:/workspace/output \
@@ -98,42 +121,43 @@ docker run --gpus all --rm \
     -e AWS_DEFAULT_REGION=$AWS_DEFAULT_REGION \
     -e LLM_DATA__DATA_DIR=/workspace/data \
     -e LLM_TRAINING__OUTPUT_DIR=/workspace/checkpoints \
+    -e HF_TOKEN=\$HF_TOKEN \
     $ECR_REPOSITORY_URL:$DOCKER_IMAGE_TAG \
     $TRAINING_COMMAND
 
-EXIT_CODE=$?
+EXIT_CODE=\$?
 
 # End timestamp
-END_TIME=$(date +%s)
-DURATION=$((END_TIME - START_TIME))
-DURATION_MIN=$((DURATION / 60))
+END_TIME=\$(date +%s)
+DURATION=\$((END_TIME - START_TIME))
+DURATION_MIN=\$((DURATION / 60))
 
 echo "========================================"
-echo "Training Run Completed: $(date)"
-echo "Duration: $DURATION_MIN minutes"
-echo "Exit Code: $EXIT_CODE"
+echo "Training Run Completed: \$(date)"
+echo "Duration: \$DURATION_MIN minutes"
+echo "Exit Code: \$EXIT_CODE"
 echo "========================================"
 
 # Sync outputs to S3
-if [ $EXIT_CODE -eq 0 ]; then
+if [ \$EXIT_CODE -eq 0 ]; then
     echo "Training successful, syncing outputs to S3..."
-    aws s3 sync /workspace/checkpoints/ s3://$OUTPUTS_BUCKET/runs/$RUN_ID/checkpoints/ --quiet
-    aws s3 sync /workspace/output/ s3://$OUTPUTS_BUCKET/runs/$RUN_ID/output/ --quiet
+    aws s3 sync /workspace/checkpoints/ s3://$OUTPUTS_BUCKET/runs/\$RUN_ID/checkpoints/ --quiet
+    aws s3 sync /workspace/output/ s3://$OUTPUTS_BUCKET/runs/\$RUN_ID/output/ --quiet
     
     # Create success marker
-    echo "Training completed successfully at $(date)" | \
-        aws s3 cp - s3://$OUTPUTS_BUCKET/runs/$RUN_ID/SUCCESS
+    echo "Training completed successfully at \$(date)" | \
+        aws s3 cp - s3://$OUTPUTS_BUCKET/runs/\$RUN_ID/SUCCESS
     
-    echo "Outputs synced to s3://$OUTPUTS_BUCKET/runs/$RUN_ID/"
+    echo "Outputs synced to s3://$OUTPUTS_BUCKET/runs/\$RUN_ID/"
 else
-    echo "Training failed with exit code $EXIT_CODE"
+    echo "Training failed with exit code \$EXIT_CODE"
     
     # Upload logs anyway for debugging
-    aws s3 sync /workspace/output/ s3://$OUTPUTS_BUCKET/runs/$RUN_ID/output-failed/ --quiet || true
+    aws s3 sync /workspace/output/ s3://$OUTPUTS_BUCKET/runs/\$RUN_ID/output-failed/ --quiet || true
     
     # Create failure marker
-    echo "Training failed at $(date) with exit code $EXIT_CODE" | \
-        aws s3 cp - s3://$OUTPUTS_BUCKET/runs/$RUN_ID/FAILURE
+    echo "Training failed at \$(date) with exit code \$EXIT_CODE" | \
+        aws s3 cp - s3://$OUTPUTS_BUCKET/runs/\$RUN_ID/FAILURE
 fi
 
 # Auto-shutdown if enabled
@@ -142,14 +166,14 @@ if [ "$AUTO_SHUTDOWN" = "true" ]; then
     sleep 300
     
     # Get instance ID from metadata
-    INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-    echo "Terminating instance: $INSTANCE_ID"
+    INSTANCE_ID=\$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+    echo "Terminating instance: \$INSTANCE_ID"
     
     # Self-terminate
-    aws ec2 terminate-instances --instance-ids $INSTANCE_ID --region $AWS_DEFAULT_REGION
+    aws ec2 terminate-instances --instance-ids \$INSTANCE_ID --region $AWS_DEFAULT_REGION
 fi
 
-exit $EXIT_CODE
+exit \$EXIT_CODE
 EOF
 
 chmod +x /workspace/run_training.sh

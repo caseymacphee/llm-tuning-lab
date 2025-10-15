@@ -47,15 +47,14 @@ def prepare_datasets(config):
             inject_catalog=config.data.inject_tool_catalog
         ))
     
-    # Convert to HuggingFace datasets
+    # Convert to HuggingFace datasets with text column for SFTTrainer
+    # Format using Llama-3 chat template
     train_dataset = Dataset.from_dict({
-        "input": [ex.input for ex in train_data],
-        "output": [ex.output for ex in train_data]
+        "text": [f"<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n\n{ex.input}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n{ex.output}<|eot_id|>" for ex in train_data]
     })
     
     eval_dataset = Dataset.from_dict({
-        "input": [ex.input for ex in eval_data],
-        "output": [ex.output for ex in eval_data]
+        "text": [f"<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n\n{ex.input}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n{ex.output}<|eot_id|>" for ex in eval_data]
     })
     
     return train_dataset, eval_dataset
