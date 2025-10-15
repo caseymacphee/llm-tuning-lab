@@ -18,27 +18,25 @@ export TRAINING_BUCKET="${training_bucket}"
 export OUTPUTS_BUCKET="${outputs_bucket}"
 export TRAINING_COMMAND="${training_command}"
 export AUTO_SHUTDOWN="${auto_shutdown}"
+export DEBIAN_FRONTEND=noninteractive
 
 # Update system
 echo "Updating system packages..."
 apt-get update -y
 apt-get upgrade -y
 
-# Install required packages
+# Install required packages (Docker already on Deep Learning AMI)
 echo "Installing required packages..."
 apt-get install -y \
-    docker.io \
-    awscli \
     jq \
     unzip \
     htop \
-    nvtop \
-    tmux
+    tmux || echo "Warning: Some packages already installed"
 
-# Start Docker service
-echo "Starting Docker service..."
-systemctl enable docker
-systemctl start docker
+# Ensure Docker service is running
+echo "Ensuring Docker service is running..."
+systemctl enable docker || true
+systemctl start docker || true
 
 # Install nvidia-docker2 for GPU support
 echo "Installing nvidia-docker2..."
@@ -47,7 +45,7 @@ curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | apt-key add -
 curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | \
     tee /etc/apt/sources.list.d/nvidia-docker.list
 apt-get update
-apt-get install -y nvidia-docker2
+apt-get install -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" nvidia-docker2
 systemctl restart docker
 
 # Verify GPU is available
