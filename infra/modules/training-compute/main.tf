@@ -183,6 +183,13 @@ resource "aws_iam_role_policy" "training" {
             "ec2:ResourceTag/Name" = "${var.name}-training"
           }
         }
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ]
+        Resource = "arn:aws:secretsmanager:${data.aws_region.current.id}:*:secret:llm-tuning-lab/huggingface-token-*"
       }
     ]
   })

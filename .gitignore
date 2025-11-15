@@ -147,6 +147,12 @@ mlruns/
 # DVC
 .dvc/
 
+# Terraform
+*.tfstate
+*.tfstate.*
+*.tfvars
+.terraform/
+.terraform.lock.hcl
 
 # raw training data  
 data/
